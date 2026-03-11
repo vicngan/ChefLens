@@ -69,10 +69,10 @@ export default function ChefLensHome() {
   const [visualGuidance, setVisualGuidance] = useState<{ active: boolean; query: string; url: string | null }>({ active: false, query: "", url: null });
 
   // Input & Query State
-  const [inputMode, setInputMode] = useState<"camera" | "text">("camera");
   const [inputText, setInputText] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [showCamera, setShowCamera] = useState(true);
 
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,8 +163,8 @@ export default function ChefLensHome() {
     if (!ws || !isConnected) return;
 
     const interval = setInterval(() => {
-      // Only capture if webcam is actually rendered and streaming
-      if (webcamRef.current && inputMode === "camera") {
+      // Always capture if webcam is connected (even if hidden via CSS) so the AI can still 'see' the room
+      if (webcamRef.current) {
         const imageSrc = webcamRef.current.getScreenshot();
         if (imageSrc) {
           const base64 = imageSrc.split(",")[1];
@@ -174,7 +174,7 @@ export default function ChefLensHome() {
     }, 1000); // 1 frame per second
 
     return () => clearInterval(interval);
-  }, [ws, isConnected, inputMode]);
+  }, [ws, isConnected]);
 
   return (
     <main className="flex h-screen w-full flex-col items-center justify-start bg-zinc-950 text-white p-4 pt-8">
@@ -197,37 +197,45 @@ export default function ChefLensHome() {
             )}
         </div>
 
-        {/* Mode Toggle UI */}
+        {/* Mode Toggle UI & Status */}
         <div className="flex p-1 bg-zinc-900 border border-zinc-800 rounded-full shadow-lg">
             <button
-                onClick={() => setInputMode("camera")}
-                className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition-all ${inputMode === "camera" ? "bg-zinc-800 text-white shadow-md border border-zinc-700" : "text-zinc-500 hover:text-zinc-300"}`}
+                onClick={() => setShowCamera(!showCamera)}
+                className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition-all ${showCamera ? "bg-zinc-800 text-white shadow-md border border-zinc-700" : "text-zinc-500 hover:text-zinc-300"}`}
             >
-                📸 Camera
-            </button>
-            <button
-                onClick={() => setInputMode("text")}
-                className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition-all ${inputMode === "text" ? "bg-zinc-800 text-white shadow-md border border-zinc-700" : "text-zinc-500 hover:text-zinc-300"}`}
-            >
-                ⌨️ Text
+                {showCamera ? "🫣 Hide Camera" : "📸 Show Camera"}
             </button>
         </div>
       </div>
 
-      {inputMode === "camera" ? (
-      <div className="relative w-full max-w-4xl aspect-video rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl">
-        <Webcam
-          ref={webcamRef}
-          audio={true}
-          muted={true} // Prevent audio feedback from default webcam mic
-          screenshotFormat="image/jpeg"
-          className="w-full h-full object-cover"
-        />
+      <div className="relative w-full max-w-4xl aspect-video rounded-3xl overflow-hidden bg-black shadow-2xl flex items-center justify-center border border-zinc-800/50">
         
-        {/* Visualizer Overlay */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-           <div className="w-32 h-32 rounded-full border-4 border-blue-500/30 animate-[ping_3s_ease-in-out_infinite]"></div>
-           <div className="absolute w-24 h-24 rounded-full bg-blue-500/20 shadow-[0_0_50px_rgba(59,130,246,0.5)] backdrop-blur-md"></div>
+        {/* Main Centerpiece: The Visualizer Orbs */}
+        <div className="relative flex items-center justify-center w-full h-full pointer-events-none">
+            {/* Outer large pulse */}
+            <div className={`w-64 h-64 rounded-full border border-blue-500/20 ${isThinking ? 'animate-[ping_1.5s_ease-in-out_infinite] border-green-500/40' : 'animate-[ping_4s_ease-in-out_infinite]'}`}></div>
+            {/* Medium subtle glow */}
+            <div className={`absolute w-48 h-48 rounded-full shadow-[0_0_80px_rgba(59,130,246,0.3)] backdrop-blur-3xl ${isThinking ? 'bg-green-500/10 shadow-[0_0_100px_rgba(34,197,94,0.4)] animate-pulse' : 'bg-blue-500/10'}`}></div>
+            {/* Inner bright core */}
+            <div className={`absolute w-24 h-24 rounded-full shadow-[0_0_50px_rgba(255,255,255,0.4)] ${isThinking ? 'bg-green-400/50 animate-bounce' : 'bg-blue-500/30'}`}></div>
+            
+            {/* Copilot Status Text */}
+            <div className="absolute -bottom-20 text-center">
+                <span className="text-zinc-500 text-sm tracking-widest uppercase font-semibold">
+                    {isThinking ? "ChefLens is thinking..." : "ChefLens is listening"}
+                </span>
+            </div>
+        </div>
+
+        {/* Picture-in-Picture Webcam (Top Right) */}
+        <div className={`absolute top-4 right-4 w-48 aspect-video bg-zinc-900 rounded-xl overflow-hidden border-2 border-zinc-700 shadow-2xl transition-all duration-500 ${showCamera ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
+            <Webcam
+                ref={webcamRef}
+                audio={true}
+                muted={true} // Prevent audio feedback from default webcam mic
+                screenshotFormat="image/jpeg"
+                className="w-full h-full object-cover"
+            />
         </div>
 
         {/* Recipe Step Overlay */}
@@ -239,17 +247,17 @@ export default function ChefLensHome() {
             {currentStep.description}
           </p>
         </div>
-        {/* Closed Captions Overlay */}
+        {/* Closed Captions Overlay - Moved up slightly to not overlap recipe */}
         {captionsEnabled && captionsText && (
-          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 w-10/12 text-center pointer-events-none z-20 transition-opacity duration-300">
+          <div className="absolute top-24 left-1/2 -translate-x-1/2 w-10/12 text-center pointer-events-none z-20 transition-opacity duration-300">
             <span className="bg-black/80 px-4 py-2 rounded-lg text-yellow-400 font-bold text-lg md:text-xl drop-shadow-md">
                 {captionsText}
             </span>
           </div>
         )}
 
-        {/* Controls Overlay */}
-        <div className="absolute top-4 right-4 flex flex-col items-end gap-2 z-10">
+        {/* Top Left Controls Overlay (Moved from right due to PiP camera) */}
+        <div className="absolute top-4 left-4 flex flex-col items-start gap-2 z-10">
             <button
                 onClick={() => setCaptionsEnabled(!captionsEnabled)}
                 className={`text-sm font-semibold px-4 py-2 rounded-full backdrop-blur-md transition-colors shadow-lg border ${captionsEnabled ? 'bg-zinc-800 text-white border-zinc-500' : 'bg-zinc-800/50 text-zinc-400 border-zinc-700 hover:bg-zinc-700'}`}
@@ -319,49 +327,37 @@ export default function ChefLensHome() {
             </div>
         )}
       </div>
-      ) : (
-      // TEXT MODE UI
-      <div className="flex-1 w-full max-w-4xl flex flex-col items-center justify-center animate-in fade-in">
-          <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-2xl shadow-xl w-full text-center">
-            <h1 className="text-3xl font-light text-white mb-2">What&apos;s in your kitchen?</h1>
-            <p className="text-zinc-400 mb-8">Type out your ingredients, dietary restrictions, or cooking questions below.</p>
-            
-            <form onSubmit={handleTextSubmit} className="flex gap-2 w-full max-w-2xl mx-auto">
-                <input 
-                    type="text" 
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder="e.g. I have 2 eggs, flour, and some spinach..." 
-                    autoFocus
-                    className="flex-1 bg-zinc-950 border border-zinc-700 text-white placeholder-zinc-500 px-6 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-lg shadow-inner"
-                />
-                <button 
-                    type="submit" 
-                    disabled={!inputText.trim() || !isConnected}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-semibold px-8 py-4 rounded-xl transition-colors shadow-lg"
-                >
-                    Send
-                </button>
-            </form>
-          </div>
-      </div>
-      )}
-      
-      {inputMode === "camera" && (
-      <div className="mt-8 w-full max-w-lg mb-4 animate-in fade-in">
+
+      {/* Persistent Input & Actions Footer */}
+      <div className="mt-6 w-full max-w-4xl flex flex-col md:flex-row items-center gap-4 animate-in fade-in">
         {/* Quick Actions */}
-        <div className="flex flex-col items-center justify-center gap-3">
-            <button
-                onClick={handleQuickAction}
-                disabled={!isConnected}
-                className="bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-blue-400 text-sm font-medium px-6 py-3 rounded-full border border-blue-900/50 transition-colors flex items-center gap-2 shadow-lg"
+        <button
+            onClick={handleQuickAction}
+            disabled={!isConnected}
+            className="w-full md:w-auto bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-blue-400 text-sm font-medium px-6 py-4 rounded-xl border border-blue-900/50 transition-colors flex items-center justify-center gap-2 shadow-lg whitespace-nowrap"
+        >
+            📷 Identify items
+        </button>
+
+        {/* Text Input */}
+        <form onSubmit={handleTextSubmit} className="flex gap-2 w-full flex-1">
+            <input 
+                type="text" 
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Type your ingredients or ask a question..." 
+                className="flex-1 bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 px-6 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-inner"
+            />
+            <button 
+                type="submit" 
+                disabled={!inputText.trim() || !isConnected}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-800 disabled:text-zinc-500 text-white font-semibold px-8 py-4 rounded-xl transition-colors shadow-lg"
             >
-                📷 Identify ingredients on camera
+                Send
             </button>
-        </div>
+        </form>
       </div>
-      )}
-      
+
     </main>
   );
 }

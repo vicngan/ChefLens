@@ -34,9 +34,12 @@ wss.on('connection', async (clientWs: WebSocket) => {
     console.log('Client connected to ChefLens Backend');
 
     try {
+        let latestImageFrame: string | null = null;
+        let latestImageMimeType: string | null = null;
+
         // Initialize Gemini Multimodal Live API connection
         const geminiLiveSession = await ai.live.connect({
-            model: 'gemini-2.0-flash-exp',
+            model: 'gemini-2.5-flash-native-audio-latest',
             config: {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 tools: [{ 
@@ -95,12 +98,14 @@ wss.on('connection', async (clientWs: WebSocket) => {
         });
 
         // 1. Receive data from Web Client and relay to Gemini
-        clientWs.on('message', (message: Buffer) => {
+        clientWs.on('message', async (message: Buffer) => {
             try {
                 const data = JSON.parse(message.toString());
                 
                 // Route image frames
                 if (data.type === 'pixelData') {
+                    latestImageFrame = data.base64;
+                    latestImageMimeType = 'image/jpeg';
                     geminiLiveSession.sendRealtimeInput({
                         media: { data: data.base64, mimeType: 'image/jpeg' }
                     });
@@ -113,15 +118,36 @@ wss.on('connection', async (clientWs: WebSocket) => {
                     });
                 }
                 
-                // Route text input
+                // Route text input natively via out-of-band stream
                 if (data.type === 'clientContent') {
-                    geminiLiveSession.sendClientContent({ 
-                        turns: [{ 
-                            role: "user", 
-                            parts: [{ text: data.text }] 
-                        }], 
-                        turnComplete: true 
-                    });
+                    try {
+                        const parts: any[] = [];
+                        if (latestImageFrame) {
+                            parts.push({
+                                inlineData: {
+                                    data: latestImageFrame,
+                                    mimeType: latestImageMimeType
+                                }
+                            });
+                        }
+                        parts.push({ text: data.text });
+                        
+                        const responseStream = await ai.models.generateContentStream({
+                            model: 'gemini-2.5-flash',
+                            contents: [{ role: 'user', parts: parts }] as any,
+                            config: {
+                                systemInstruction: SYSTEM_INSTRUCTION
+                            }
+                        });
+                        
+                        for await (const chunk of responseStream) {
+                            if (chunk.text && clientWs.readyState === WebSocket.OPEN) {
+                                clientWs.send(JSON.stringify({ type: 'cc', text: chunk.text }));
+                            }
+                        }
+                    } catch (genErr) {
+                        console.error('Error in out-of-band generation', genErr);
+                    }
                 }
             } catch (err) {
                 console.error("Error processing client message", err);
