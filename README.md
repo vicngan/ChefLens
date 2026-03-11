@@ -36,6 +36,9 @@ The project uses a split Client-Server architecture to securely connect the fron
 ### 4. 🧏 Accessibility: Sign Language & Vision AI 
 - **Implementation**: For vocal-compromised users, ChefLens acts as a sign language interpreter. Because we stream video frames directly to the model, and instruct Gemini to look for American Sign Language (ASL) via the System Prompt ("ACCESSIBILITY OVERRIDE"), users can simply sign to the camera. Gemini natively understands the gestures and responds aloud.
 
+### 5. 🧅 Visual Ingredient Guidance
+- **Implementation**: When users ask "how do I dice an onion?" or "what does star anise look like?", Gemini recognizes the intent and triggers the `show_ingredient_visual` tool via WebSocket. The frontend instantly fetches a short instructional animation using the Giphy API and displays it in a dismissible floating overlay.
+
 ---
 
 ## 🚀 Tutorial: How to set up and run Locally
@@ -71,11 +74,15 @@ The frontend provides the interactive UI, manages webcam streams, and records th
    cd frontend
    npm install
    ```
-2. Start the development server (Defaults to Port `3000`):
+2. (Optional) For the Visual Ingredient Guidance feature, create a `.env.local` file in the `frontend` folder with your Giphy API key (a fallback public key is included, but applying your own avoids rate limits):
+   ```env
+   NEXT_PUBLIC_GIPHY_API_KEY=your_giphy_api_key_here
+   ```
+3. Start the development server (Defaults to Port `3000`):
    ```bash
    npm run dev
    ```
-3. Open your browser and go to [http://localhost:3000](http://localhost:3000)
+4. Open your browser and go to [http://localhost:3000](http://localhost:3000)
 
 ### 3. How to use ChefLens
 - **Start Cooking:** Ensure your webcam and microphone permissions are accepted in the browser. Place an ingredient in front of the camera and ask, "What can I make with this?".

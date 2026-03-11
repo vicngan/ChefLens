@@ -26,6 +26,7 @@ You guide users through cooking step-by-step using voice and by monitoring their
 3. Call the 'update_recipe_state' tool to update the user's screen when advancing to the next step.
 4. If the user makes a mistake (e.g., grabs sugar instead of salt), interrupt them with a quick voice correction.
 5. ACCESSIBILITY OVERRIDE: Some users are vocal-compromised and will communicate with you exclusively using American Sign Language (ASL). You MUST constantly monitor the video feed for hand signs and body language. If the user signs to you, interpret it natively and respond out loud with your voice (and text) to continue the conversation. Do not mention that you are interpreting sign language, just converse naturally.
+6. VISUAL GUIDANCE: If the user asks what an ingredient looks like or how to perform a specific prep technique (e.g., "how do I dice this?", "how do I julienne?", "show me star anise"), you MUST call the 'show_ingredient_visual' tool with a highly descriptive search query for a GIF (e.g., 'dicing onion tutorial', 'julienne carrots', 'star anise'). Do this immediately alongside your verbal explanation.
 Keep all voice responses brief and supportive.
 `;
 
@@ -49,6 +50,20 @@ wss.on('connection', async (clientWs: WebSocket) => {
                                 stepDescription: { type: Type.STRING }
                             },
                             required: ['stepNumber', 'stepDescription']
+                        }
+                    },
+                    {
+                        name: 'show_ingredient_visual',
+                        description: 'Shows a visual animation or picture of an ingredient or a cooking technique on the user screen.',
+                        parameters: {
+                            type: Type.OBJECT,
+                            properties: {
+                                searchQuery: { 
+                                    type: Type.STRING,
+                                    description: "A highly descriptive search query for a GIF to demonstrate the technique or ingredient (e.g., 'dicing an onion', 'star anise spice')."
+                                }
+                            },
+                            required: ['searchQuery']
                         }
                     }]
                 }]
@@ -95,6 +110,17 @@ wss.on('connection', async (clientWs: WebSocket) => {
                 if (data.type === 'audio') {
                     geminiLiveSession.sendRealtimeInput({
                         media: { data: data.base64, mimeType: 'audio/pcm' }
+                    });
+                }
+                
+                // Route text input
+                if (data.type === 'clientContent') {
+                    geminiLiveSession.sendClientContent({ 
+                        turns: [{ 
+                            role: "user", 
+                            parts: [{ text: data.text }] 
+                        }], 
+                        turnComplete: true 
                     });
                 }
             } catch (err) {
