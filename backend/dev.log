@@ -1,0 +1,12 @@
+
+> backend@1.0.0 dev
+> ts-node src/server.ts
+
+[dotenv@17.3.1] injecting env (1) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+ChefLens Backend running on http://localhost:3001
+Client connected to ChefLens Backend
+Client disconnected
+Client connected to ChefLens Backend
+Client disconnected
+Client connected to ChefLens Backend
+Client disconnected

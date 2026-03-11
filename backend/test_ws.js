@@ -3,13 +3,15 @@ import WebSocket from 'ws';
 const ws = new WebSocket('ws://localhost:3001');
 
 ws.on('open', () => {
-    console.log('Connected to backend WebSocket.');
+    console.log('Connected to backend WebSocket. Waiting for backend to initialize Gemini...');
 
-    console.log('Sending text query...');
-    ws.send(JSON.stringify({
-        type: 'clientContent',
-        text: 'Hello ChefLens! This is a test.'
-    }));
+    setTimeout(() => {
+        console.log('Sending text query...');
+        ws.send(JSON.stringify({
+            type: 'clientContent',
+            text: 'Hello ChefLens! This is a test.'
+        }));
+    }, 3000);
 });
 
 ws.on('message', (data) => {
